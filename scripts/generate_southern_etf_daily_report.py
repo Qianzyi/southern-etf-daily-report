@@ -550,11 +550,15 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
 
     company_gap_prev = None
     company_gap_next = None
+    prev_company_scale = 0
+    company_products = 0
     if company:
         if company["rank"] > 1:
-            company_gap_prev = analysis.managers[company["rank"] - 2]["scale"] - company["scale"]
+            prev_company_scale = analysis.managers[company["rank"] - 2]["scale"]
+            company_gap_prev = prev_company_scale - company["scale"]
         if company["rank"] < len(analysis.managers):
             company_gap_next = company["scale"] - analysis.managers[company["rank"]]["scale"]
+        company_products = int(company.get("products") or len(analysis.company_products))
 
     validation_text = (
         "数据验证agent：ETF数据核验专家。已校验ETF产品代码唯一性、样本数量完整性、规模合计可复算、前十大管理人排序、"
@@ -627,6 +631,11 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     }}
     .kpi strong {{ display: block; color: var(--ink); font-size: 23px; line-height: 1; margin-bottom: 7px; font-weight: 800; }}
     .kpi span {{ display:block; color: var(--muted); font-size: 12px; }}
+    .kpi-label {{
+      min-height: 34px;
+      color: var(--text) !important;
+      font-weight: 700;
+    }}
     section {{
       background: var(--panel);
       backdrop-filter: blur(20px) saturate(145%);
@@ -730,11 +739,16 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     </header>
 
     <div class="kpis">
-      <div class="kpi"><strong>{analysis.total_scale:,.0f}亿</strong><span>全市场ETF规模</span><span>日变{tone_span(signed(analysis.total_delta, 1) + '亿')}</span></div>
-      <div class="kpi"><strong>{top10_scale:,.0f}亿</strong><span>前十大管理人</span><span>CR10 {cr10:.1f}%</span></div>
-      <div class="kpi"><strong>第{company.get('rank', '-')}名</strong><span>{esc(analysis.company_name)}排名</span><span>规模{company.get('scale', 0):,.0f}亿</span></div>
-      <div class="kpi"><strong>{tone_span('+' + f'{company_gap_next or 0:,.0f}' + '亿')}</strong><span>{esc(analysis.company_name)}攻防距离</span><span>距前一名{company_gap_prev or 0:,.0f}亿</span></div>
-      <div class="kpi"><strong>{len(analysis.rows)}只</strong><span>样本产品数</span><span>全量ETF列表</span></div>
+      <div class="kpi"><span class="kpi-label">全市场ETF合计规模</span><strong>{analysis.total_scale:,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">前十大管理人ETF合计规模</span><strong>{top10_scale:,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}ETF规模排名</span><strong>第{company.get('rank', '-')}名</strong></div>
+      <div class="kpi"><span class="kpi-label">前一名基金ETF规模</span><strong>{prev_company_scale:,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">全市场ETF数量</span><strong>{len(analysis.rows)}只</strong></div>
+      <div class="kpi"><span class="kpi-label">当日全市场ETF规模变化</span><strong>{tone_span(signed(analysis.total_delta, 1) + '亿')}</strong></div>
+      <div class="kpi"><span class="kpi-label">前十大管理人ETF合计规模占比</span><strong>{cr10:.1f}%</strong></div>
+      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}ETF合计规模</span><strong>{company.get('scale', 0):,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">距前一名追赶距离</span><strong>{company_gap_prev or 0:,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}ETF数量</span><strong>{company_products}只</strong></div>
     </div>
 
     <section>
