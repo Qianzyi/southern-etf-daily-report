@@ -156,6 +156,20 @@ def pct(value: float, digits: int = 2) -> str:
     return f"{value:+.{digits}f}%"
 
 
+def tone_class(value: Any) -> str:
+    text = str(value if value is not None else "").strip()
+    if text.startswith(("+", "↑")):
+        return "pos"
+    if text.startswith(("-", "↓")) and text != "-":
+        return "neg"
+    return ""
+
+
+def tone_span(value: Any) -> str:
+    cls = tone_class(value)
+    return f'<span class="{cls}">{esc(value)}</span>' if cls else esc(value)
+
+
 def prev_scale(current: float, change_ratio: float) -> float:
     denominator = 1 + change_ratio / 100.0
     if denominator <= 0:
@@ -305,7 +319,13 @@ def table(
     for row in rows:
         cells = []
         for idx, cell in enumerate(row):
-            cls = ' class="num"' if idx in align_right else ""
+            classes = []
+            if idx in align_right:
+                classes.append("num")
+            tone = tone_class(cell)
+            if tone:
+                classes.append(tone)
+            cls = f' class="{" ".join(classes)}"' if classes else ""
             cells.append(f"<td{cls}>{esc(cell)}</td>")
         body.append("<tr>" + "".join(cells) + "</tr>")
     return f"""
@@ -354,7 +374,7 @@ def category_table(analysis: Analysis) -> str:
             f"{category['scale']:,.1f}",
             signed(category["delta"], 1),
             f"{category['delta_pct']:+.2f}%",
-            f"{category['net_inflow']:,.1f}",
+            signed(category["net_inflow"], 1),
             f"{category['turnover']:,.1f}",
             category["products"],
         ]
@@ -551,21 +571,27 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
   <title>{esc(report_title)}</title>
   <style>
     :root {{
-      --ink: #101827;
+      --ink: #111827;
       --text: #1f2937;
-      --muted: #526070;
-      --line: #d8e0ec;
-      --line-strong: #c7d3e5;
-      --blue: #155eef;
-      --blue-dark: #0f3cba;
-      --panel: #ffffff;
-      --row: #f8fbff;
-      --green: #087443;
+      --muted: #667085;
+      --line: rgba(148, 163, 184, 0.28);
+      --line-strong: rgba(100, 116, 139, 0.34);
+      --soft: rgba(248, 250, 252, 0.72);
+      --blue: #0a84ff;
+      --blue-dark: #075ac7;
+      --panel: rgba(255, 255, 255, 0.72);
+      --panel-strong: rgba(255, 255, 255, 0.88);
+      --row: rgba(241, 245, 249, 0.48);
+      --green: #079455;
+      --red: #d92d20;
+      --shadow: 0 18px 48px rgba(15, 23, 42, 0.10);
+      --shadow-soft: 0 10px 28px rgba(15, 23, 42, 0.07);
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      background: #edf2f7;
+      background:
+        linear-gradient(135deg, #f8fafc 0%, #eaf1f8 44%, #f7fbff 100%) fixed;
       color: var(--text);
       font-family: "Microsoft YaHei", "微软雅黑", "Segoe UI", sans-serif;
       font-size: 14px;
@@ -573,23 +599,44 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     }}
     .page {{ max-width: 1400px; margin: 18px auto 32px; padding: 0 24px; }}
     .hero {{
-      background: var(--panel);
+      background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.58));
+      backdrop-filter: blur(22px) saturate(150%);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
       border: 1px solid var(--line-strong);
-      border-top: 4px solid var(--blue);
-      border-radius: 7px;
+      border-top: 3px solid rgba(10, 132, 255, 0.86);
+      border-radius: 8px;
       padding: 18px 22px 17px;
       display: grid;
       grid-template-columns: 1.2fr auto;
       gap: 16px;
       align-items: start;
+      box-shadow: var(--shadow);
     }}
     h1 {{ margin: 0; color: var(--ink); font-size: 28px; line-height: 1.18; font-weight: 800; }}
     .meta {{ color: var(--muted); text-align: right; font-size: 12px; white-space: nowrap; }}
     .kpis {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 10px 0; }}
-    .kpi {{ background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 11px 13px; min-height: 78px; }}
+    .kpi {{
+      background: var(--panel);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+      border: 1px solid rgba(255, 255, 255, 0.76);
+      border-radius: 8px;
+      padding: 11px 13px;
+      min-height: 78px;
+      box-shadow: var(--shadow-soft);
+    }}
     .kpi strong {{ display: block; color: var(--ink); font-size: 23px; line-height: 1; margin-bottom: 7px; font-weight: 800; }}
     .kpi span {{ display:block; color: var(--muted); font-size: 12px; }}
-    section {{ background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 15px 16px; margin-top: 10px; }}
+    section {{
+      background: var(--panel);
+      backdrop-filter: blur(20px) saturate(145%);
+      -webkit-backdrop-filter: blur(20px) saturate(145%);
+      border: 1px solid rgba(255, 255, 255, 0.74);
+      border-radius: 8px;
+      padding: 15px 16px;
+      margin-top: 10px;
+      box-shadow: var(--shadow-soft);
+    }}
     h2 {{ margin: 0 0 10px; color: var(--ink); font-size: 20px; line-height: 1.25; font-weight: 800; }}
     h3, .subsection-title {{ margin: 0 0 8px; color: var(--ink); font-size: 15px; line-height: 1.3; font-weight: 800; }}
     .grid-2, .grid-3 {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }}
@@ -598,8 +645,10 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     .summary-panel {{
       height: 100%;
       border: 1px solid var(--line-strong);
-      border-radius: 6px;
-      background: #fbfdff;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.58);
+      backdrop-filter: blur(16px) saturate(145%);
+      -webkit-backdrop-filter: blur(16px) saturate(145%);
       padding: 12px 14px 13px;
     }}
     .summary-panel h2 {{ padding-bottom: 7px; border-bottom: 1px solid var(--line); margin-bottom: 9px; }}
@@ -610,13 +659,15 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
       min-height: 0;
       flex-direction: column;
       border: 1px solid var(--line-strong);
-      border-radius: 6px;
-      background: #fff;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.64);
+      backdrop-filter: blur(16px) saturate(145%);
+      -webkit-backdrop-filter: blur(16px) saturate(145%);
       overflow: hidden;
     }}
     .manager-visual-card > .table-wrap, .paired-visual-card > .table-wrap {{ flex: 1; border: 0; border-radius: 0; }}
     .manager-visual-card .source, .paired-visual-card .source {{ padding: 0 10px 8px; }}
-    .manager-bar-card {{ padding: 14px 16px; background: #fbfdff; }}
+    .manager-bar-card {{ padding: 14px 16px; background: rgba(255, 255, 255, 0.52); }}
     .manager-bar-card .bars {{
       flex: 1;
       display: flex;
@@ -629,11 +680,11 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
       background: transparent;
     }}
     .manager-bar-card .bar-row {{ margin: 0; }}
-    .paired-insight-card {{ padding: 14px 16px; background: #fbfdff; }}
+    .paired-insight-card {{ padding: 14px 16px; background: rgba(255, 255, 255, 0.52); }}
     .manager-note {{ margin-top: 10px; }}
     ol {{ margin: 0; padding-left: 18px; }}
     li {{ margin: 4px 0; }}
-    .table-wrap {{ width: 100%; overflow-x: auto; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; }}
+    .table-wrap {{ width: 100%; overflow-x: auto; border: 1px solid var(--line-strong); border-radius: 8px; background: rgba(255, 255, 255, 0.70); }}
     table {{ width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }}
     th, td {{
       border-bottom: 1px solid var(--line);
@@ -645,21 +696,23 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
       white-space: nowrap;
       color: var(--text);
     }}
-    th {{ background: #eaf2ff; color: var(--ink); font-weight: 800; line-height: 1.22; white-space: normal; }}
+    th {{ background: rgba(235, 244, 255, 0.72); color: var(--ink); font-weight: 800; line-height: 1.22; white-space: normal; }}
     tr:nth-child(even) td {{ background: var(--row); }}
     th:last-child, td:last-child {{ border-right: 0; }}
     tr:last-child td {{ border-bottom: 0; }}
     td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
+    .pos {{ color: var(--red) !important; font-weight: 700; }}
+    .neg {{ color: var(--green) !important; font-weight: 700; }}
     .source {{ text-align: right; color: var(--muted); font-size: 11px; margin-top: 5px; }}
-    .bars {{ border: 1px solid var(--line-strong); border-radius: 6px; padding: 10px 12px; background: #fbfdff; }}
+    .bars {{ border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; background: rgba(255, 255, 255, 0.50); }}
     .bar-row {{ display: grid; grid-template-columns: 54px minmax(0, 1fr) 62px; gap: 8px; align-items: center; margin: 7px 0; font-size: 12px; }}
     .bar-label {{ color: var(--ink); font-weight: 700; }}
-    .bar-track {{ height: 12px; background: #e6edf7; border-radius: 999px; overflow: hidden; }}
-    .bar-track span {{ display: block; height: 100%; background: linear-gradient(90deg, var(--blue), #5b8def); border-radius: inherit; }}
+    .bar-track {{ height: 12px; background: rgba(226, 232, 240, 0.74); border-radius: 999px; overflow: hidden; }}
+    .bar-track span {{ display: block; height: 100%; background: linear-gradient(90deg, #0a84ff, #61a6ff); border-radius: inherit; }}
     .bar-value {{ text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }}
-    .note {{ background: #f7faff; border: 1px solid var(--line); border-radius: 6px; padding: 11px 13px; align-self: start; }}
+    .note {{ background: rgba(255, 255, 255, 0.54); border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px; align-self: start; }}
     p {{ margin: 0 0 10px; }}
-    .validation {{ border-left: 6px solid var(--green); background: #f4fbf7; }}
+    .validation {{ border-left: 5px solid var(--green); background: rgba(240, 253, 244, 0.66); }}
     .refs a {{ color: var(--blue-dark); text-decoration: none; border-bottom: 1px solid #aac4ff; }}
     footer {{ color: var(--muted); font-size: 13px; margin: 18px 0 0; text-align: right; }}
     @media (max-width: 980px) {{
@@ -677,10 +730,10 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     </header>
 
     <div class="kpis">
-      <div class="kpi"><strong>{analysis.total_scale:,.0f}亿</strong><span>全市场ETF规模</span><span>日变{signed(analysis.total_delta, 1)}亿</span></div>
+      <div class="kpi"><strong>{analysis.total_scale:,.0f}亿</strong><span>全市场ETF规模</span><span>日变{tone_span(signed(analysis.total_delta, 1) + '亿')}</span></div>
       <div class="kpi"><strong>{top10_scale:,.0f}亿</strong><span>前十大管理人</span><span>CR10 {cr10:.1f}%</span></div>
       <div class="kpi"><strong>第{company.get('rank', '-')}名</strong><span>{esc(analysis.company_name)}排名</span><span>规模{company.get('scale', 0):,.0f}亿</span></div>
-      <div class="kpi"><strong>+{company_gap_next or 0:,.0f}亿</strong><span>{esc(analysis.company_name)}攻防距离</span><span>距前一名{company_gap_prev or 0:,.0f}亿</span></div>
+      <div class="kpi"><strong>{tone_span('+' + f'{company_gap_next or 0:,.0f}' + '亿')}</strong><span>{esc(analysis.company_name)}攻防距离</span><span>距前一名{company_gap_prev or 0:,.0f}亿</span></div>
       <div class="kpi"><strong>{len(analysis.rows)}只</strong><span>样本产品数</span><span>全量ETF列表</span></div>
     </div>
 
