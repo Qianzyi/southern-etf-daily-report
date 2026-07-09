@@ -1,0 +1,4 @@
+interface:
+  display_name: "Southern ETF Daily Report"
+  short_description: "Generate Southern Fund ETF daily HTML reports."
+  default_prompt: "Use $southern-etf-daily-report to generate today's Southern Fund ETF daily analysis report as HTML."
