@@ -351,7 +351,7 @@ def manager_table(analysis: Analysis) -> str:
             manager["rank"],
             company_short(manager["name"]),
             f"{manager['scale']:,.1f}",
-            signed(manager["delta"], 1),
+            signed(manager["net_inflow"], 1),
             f"{manager['market_share']:.1f}%",
             rank_change(manager["rank_change"]),
             manager["products"],
@@ -359,7 +359,7 @@ def manager_table(analysis: Analysis) -> str:
         for manager in analysis.managers[:10]
     ]
     return table(
-        ["排名", "基金公司", "非货ETF规模/亿元", "日变化", "市占率", "排名变", "产品数"],
+        ["排名", "基金公司", "非货ETF规模/亿元", "净流入", "市占率", "排名变", "产品数"],
         rows,
         {0, 2, 3, 4, 6},
         "manager-table",
@@ -508,8 +508,9 @@ def summary_text(analysis: Analysis, company_gap_prev: float | None, company_gap
 
 
 def manager_notes(analysis: Analysis, top10_scale: float, top10_delta: float, cr10: float) -> list[str]:
+    top10_net_inflow = sum(manager["net_inflow"] for manager in analysis.managers[:10])
     return [
-        f"前十大管理人合计非货ETF规模{top10_scale:,.1f}亿元，较上日{signed(top10_delta, 1)}亿元，CR10为{cr10:.1f}%。",
+        f"前十大管理人合计非货ETF规模{top10_scale:,.1f}亿元，当日净流入{signed(top10_net_inflow, 1)}亿元，CR10为{cr10:.1f}%。",
         f"头部梯队仍具规模优势，{analysis.company_name}应关注与前一名的规模差和净流入贡献产品。",
         "规模和产品数量按非货ETF口径可对齐官方排名；净流入为ETFirst口径，Wind官方若剔除上市当天认购规模，可能存在小幅差异。",
     ]
