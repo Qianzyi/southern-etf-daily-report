@@ -10,7 +10,7 @@ Use this skill to generate a polished Chinese ETF daily report for ETF strategy 
 The bundled script:
 
 - pulls all ETF list rows from ETFirst, or reads a saved raw JSON file;
-- analyzes full-market scale, top managers, product categories, flows, and Southern Fund ETF products;
+- analyzes non-currency ETF scale, top managers, product categories, flows, and Southern Fund ETF products;
 - validates product counts, code uniqueness, scale aggregation, ranking, category sums, and data date consistency;
 - writes a professional HTML report named `南方基金ETF分析日报_YYYYMMDD.html`;
 - when PDF is requested, export the final file as `南方基金ETF分析日报_YYYYMMDD.pdf`.
@@ -57,8 +57,8 @@ The HTML report includes:
 
 - title: `南方基金ETF分析日报（YYYY年M月D日）`;
 - 10 KPI cards in two rows of five:
-  `全市场ETF合计规模`, `前十大管理人ETF合计规模`, `南方基金ETF规模排名`, `前一名基金ETF规模`, `全市场ETF数量`,
-  `当日全市场ETF规模变化`, `前十大管理人ETF合计规模占比`, `南方基金ETF合计规模`, `距前一名追赶距离`, `南方基金ETF数量`;
+  `全市场非货ETF合计规模`, `前十大管理人非货ETF合计规模`, `南方基金非货ETF规模排名`, `前一名基金非货ETF规模`, `全市场非货ETF数量`,
+  `当日全市场非货ETF规模变化`, `前十大管理人非货ETF规模占比`, `南方基金非货ETF合计规模`, `距前一名追赶距离`, `南方基金非货ETF数量`;
 - `今日摘要` and `ETF营销建议` in separated panels;
 - `基金管理人ETF市场格局解读` with equal-sized ranking table and manager scale chart;
 - `市场ETF趋势与品类轮动` with equal-sized category table and research observation panel;
@@ -66,6 +66,16 @@ The HTML report includes:
 - `南方基金ETF产品监控`;
 - `数据核验专家意见`, ending with `报告内容已经过数据验证agent验证无误。` only when validation passes;
 - source notes after tables: `数据来源：南方基金，截至YYYY年M月D日。`
+
+## Official-Ranking口径
+
+Use these rules when comparing against the official Wind-style ranking screenshots:
+
+- 主表口径：`非货ETF规模排名`，ETFirst `index-base list-etf --type 2` 全量结果的规模、排名、产品数可对齐该口径。
+- 不要按产品名称中的 `现金` 字样剔除产品；例如 `自由现金流ETF` 不是货币ETF。
+- `非货非债ETF规模排名`：在主表基础上按结构化字段剔除 `clasName == 债券`，不要用产品名称模糊匹配“债”。
+- 规模、排名、产品数是主要可核验口径；2026-07-10 8:01 的官方截图中，南方基金 `非货ETF` 为 `2579.36亿元 / 83只`，`非货非债ETF` 为 `2172.69亿元 / 81只`，可由 ETFirst 2026-07-09 数据复算对齐。
+- 净流入存在数据源口径差异：Wind截图脚注说明 `净流入不含上市当天认购规模`，ETFirst `netInflow` 可能包含不同处理。报告中如未接入 Wind 净流入，应标注为 ETFirst 口径，不宣称与 Wind 净流入完全一致。
 
 ## Final PDF Format
 

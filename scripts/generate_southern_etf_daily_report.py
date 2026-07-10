@@ -359,7 +359,7 @@ def manager_table(analysis: Analysis) -> str:
         for manager in analysis.managers[:10]
     ]
     return table(
-        ["排名", "基金公司", "规模/亿元", "日变化", "市占率", "排名变", "产品数"],
+        ["排名", "基金公司", "非货ETF规模/亿元", "日变化", "市占率", "排名变", "产品数"],
         rows,
         {0, 2, 3, 4, 6},
         "manager-table",
@@ -501,17 +501,17 @@ def name_short(text: str) -> str:
 def summary_text(analysis: Analysis, company_gap_prev: float | None, company_gap_next: float | None) -> list[str]:
     company = analysis.company or {}
     return [
-        "今日ETF市场呈现“宽基承接、科技主题活跃、跨境成交高但资金分化”的结构特征。",
-        f"{analysis.company_name}ETF规模位列行业第{company.get('rank', '-')}，距前一名约{company_gap_prev or 0:,.1f}亿元，领先后一名约{company_gap_next or 0:,.1f}亿元，排名攻防具有明确管理空间。",
+        "今日非货ETF市场呈现“宽基承接、科技主题活跃、跨境成交高但资金分化”的结构特征。",
+        f"{analysis.company_name}非货ETF规模位列行业第{company.get('rank', '-')}，距前一名约{company_gap_prev or 0:,.1f}亿元，领先后一名约{company_gap_next or 0:,.1f}亿元，排名攻防具有明确管理空间。",
         "当日重点应围绕宽基配置型产品组织营销，同时保留科技主题和债券ETF的场景化素材。",
     ]
 
 
 def manager_notes(analysis: Analysis, top10_scale: float, top10_delta: float, cr10: float) -> list[str]:
     return [
-        f"前十大管理人合计ETF规模{top10_scale:,.1f}亿元，较上日{signed(top10_delta, 1)}亿元，CR10为{cr10:.1f}%。",
+        f"前十大管理人合计非货ETF规模{top10_scale:,.1f}亿元，较上日{signed(top10_delta, 1)}亿元，CR10为{cr10:.1f}%。",
         f"头部梯队仍具规模优势，{analysis.company_name}应关注与前一名的规模差和净流入贡献产品。",
-        "日度排名变化未发生明显跳动，当前更应关注规模差和净流入贡献产品，而不是单日名次本身。",
+        "规模和产品数量按非货ETF口径可对齐官方排名；净流入为ETFirst口径，Wind官方若剔除上市当天认购规模，可能存在小幅差异。",
     ]
 
 
@@ -562,7 +562,9 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
 
     validation_text = (
         "数据验证agent：ETF数据核验专家。已校验ETF产品代码唯一性、样本数量完整性、规模合计可复算、前十大管理人排序、"
-        f"{analysis.company_name}规模可复算、品类规模汇总一致和数据日期一致性，结果均通过。报告内容已经过数据验证agent验证无误。"
+        f"{analysis.company_name}规模可复算、品类规模汇总一致和数据日期一致性，结果均通过。规模和产品数采用非货ETF口径；"
+        "非货非债校验应按 clasName != 债券 剔除债券ETF，不按产品名称中的“现金”等字样剔除。"
+        "报告内容已经过数据验证agent验证无误。"
         if validation_ok
         else "数据验证agent：ETF数据核验专家。存在待复核项目：" + "；".join(validation_lines)
     )
@@ -739,16 +741,16 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     </header>
 
     <div class="kpis">
-      <div class="kpi"><span class="kpi-label">全市场ETF合计规模</span><strong>{analysis.total_scale:,.0f}亿</strong></div>
-      <div class="kpi"><span class="kpi-label">前十大管理人ETF合计规模</span><strong>{top10_scale:,.0f}亿</strong></div>
-      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}ETF规模排名</span><strong>第{company.get('rank', '-')}名</strong></div>
-      <div class="kpi"><span class="kpi-label">前一名基金ETF规模</span><strong>{prev_company_scale:,.0f}亿</strong></div>
-      <div class="kpi"><span class="kpi-label">全市场ETF数量</span><strong>{len(analysis.rows)}只</strong></div>
-      <div class="kpi"><span class="kpi-label">当日全市场ETF规模变化</span><strong>{tone_span(signed(analysis.total_delta, 1) + '亿')}</strong></div>
-      <div class="kpi"><span class="kpi-label">前十大管理人ETF合计规模占比</span><strong>{cr10:.1f}%</strong></div>
-      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}ETF合计规模</span><strong>{company.get('scale', 0):,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">全市场非货ETF合计规模</span><strong>{analysis.total_scale:,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">前十大管理人非货ETF合计规模</span><strong>{top10_scale:,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}非货ETF规模排名</span><strong>第{company.get('rank', '-')}名</strong></div>
+      <div class="kpi"><span class="kpi-label">前一名基金非货ETF规模</span><strong>{prev_company_scale:,.0f}亿</strong></div>
+      <div class="kpi"><span class="kpi-label">全市场非货ETF数量</span><strong>{len(analysis.rows)}只</strong></div>
+      <div class="kpi"><span class="kpi-label">当日全市场非货ETF规模变化</span><strong>{tone_span(signed(analysis.total_delta, 1) + '亿')}</strong></div>
+      <div class="kpi"><span class="kpi-label">前十大管理人非货ETF规模占比</span><strong>{cr10:.1f}%</strong></div>
+      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}非货ETF合计规模</span><strong>{company.get('scale', 0):,.0f}亿</strong></div>
       <div class="kpi"><span class="kpi-label">距前一名追赶距离</span><strong>{company_gap_prev or 0:,.0f}亿</strong></div>
-      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}ETF数量</span><strong>{company_products}只</strong></div>
+      <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}非货ETF数量</span><strong>{company_products}只</strong></div>
     </div>
 
     <section>
@@ -759,10 +761,10 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     </section>
 
     <section>
-      <h2>基金管理人ETF市场格局解读</h2>
+      <h2>基金管理人非货ETF市场格局解读</h2>
       <div class="grid-3 manager-grid">
         <div class="manager-column">
-          <h3 class="subsection-title">前十大基金公司ETF规模排名</h3>
+          <h3 class="subsection-title">前十大基金公司非货ETF规模排名</h3>
           <div class="manager-visual-card">{manager_table(analysis)}{source(data_date)}</div>
         </div>
         <div class="manager-aside">
