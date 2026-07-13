@@ -58,14 +58,16 @@ The HTML report includes:
 - title: `南方基金ETF分析日报（YYYY年M月D日）`;
 - 10 KPI cards in two rows of five:
   `全市场非货ETF合计规模`, `前十大管理人非货ETF合计规模`, `南方基金非货ETF规模排名`, `前一名基金非货ETF规模`, `全市场非货ETF数量`,
-  `当日全市场非货ETF规模变化`, `前十大管理人非货ETF规模占比`, `南方基金非货ETF合计规模`, `距前一名追赶距离`, `南方基金非货ETF数量`;
+  `当日全市场非货ETF净流入`, `前十大管理人非货ETF规模占比`, `南方基金非货ETF合计规模`, `距前一名追赶距离`, `南方基金非货ETF数量`;
 - `今日摘要` and `ETF营销建议` in separated panels;
 - `基金管理人ETF市场格局解读` with equal-sized ranking table and manager scale chart;
 - `市场ETF趋势与品类轮动` with equal-sized category table and research observation panel;
 - `资金流向榜`;
 - `南方基金ETF产品监控`;
-- `数据核验专家意见`, ending with `报告内容已经过数据验证agent验证无误。` only when validation passes;
+- table headers with bracketed units, such as `规模（亿元）`, `净流入（亿元）`, `成交额（亿元）`, `市占率（%）`, `产品数（只）`, and `涨跌幅（%）`;
 - source notes after tables: `数据来源：南方基金，截至YYYY年M月D日。`
+
+Data validation must still run and `validation_ok` must be checked, but the report body should not display a `数据核验专家意见` section.
 
 ## Official-Ranking口径
 

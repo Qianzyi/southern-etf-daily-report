@@ -23,6 +23,7 @@ class Analysis:
     total_scale: float
     total_prev_scale: float
     total_delta: float
+    total_net_inflow: float
     managers: list[dict[str, Any]]
     managers_by_name: dict[str, dict[str, Any]]
     categories: list[dict[str, Any]]
@@ -207,6 +208,7 @@ def analyze(rows: list[dict[str, Any]], company_name: str) -> Analysis:
     total_scale = sum(r["_ast"] for r in enriched)
     total_prev_scale = sum(r["_prev_ast"] for r in enriched)
     total_delta = total_scale - total_prev_scale
+    total_net_inflow = sum(num(r.get("netInflow")) for r in enriched)
 
     manager_acc: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"name": "", "scale": 0.0, "prev": 0.0, "delta": 0.0, "products": 0, "net_inflow": 0.0}
@@ -266,6 +268,7 @@ def analyze(rows: list[dict[str, Any]], company_name: str) -> Analysis:
         total_scale=total_scale,
         total_prev_scale=total_prev_scale,
         total_delta=total_delta,
+        total_net_inflow=total_net_inflow,
         managers=managers_current,
         managers_by_name=managers_by_name,
         categories=categories,
@@ -359,7 +362,7 @@ def manager_table(analysis: Analysis) -> str:
         for manager in analysis.managers[:10]
     ]
     return table(
-        ["排名", "基金公司", "非货ETF规模/亿元", "净流入", "市占率", "排名变", "产品数"],
+        ["排名", "基金公司", "非货ETF规模（亿元）", "净流入（亿元）", "市占率（%）", "排名变", "产品数（只）"],
         rows,
         {0, 2, 3, 4, 6},
         "manager-table",
@@ -372,8 +375,6 @@ def category_table(analysis: Analysis) -> str:
         [
             category["name"],
             f"{category['scale']:,.1f}",
-            signed(category["delta"], 1),
-            f"{category['delta_pct']:+.2f}%",
             signed(category["net_inflow"], 1),
             f"{category['turnover']:,.1f}",
             category["products"],
@@ -381,11 +382,11 @@ def category_table(analysis: Analysis) -> str:
         for category in analysis.categories[:8]
     ]
     return table(
-        ["品类", "规模/亿元", "日变化", "变化率", "净流入", "成交额", "产品数"],
+        ["品类", "规模（亿元）", "净流入（亿元）", "成交额（亿元）", "产品数（只）"],
         rows,
-        {1, 2, 3, 4, 5, 6},
+        {1, 2, 3, 4},
         "category-table",
-        ["16%", "18%", "12%", "12%", "14%", "14%", "14%"],
+        ["20%", "22%", "18%", "20%", "20%"],
     )
 
 
@@ -404,7 +405,7 @@ def flow_table(rows_in: list[dict[str, Any]], limit: int = 10) -> str:
             ]
         )
     return table(
-        ["代码", "产品简称", "公司", "品类", "规模", "净流入", "涨跌幅"],
+        ["代码", "产品简称", "公司", "品类", "规模（亿元）", "净流入（亿元）", "涨跌幅（%）"],
         rows,
         {4, 5, 6},
         "flow-table",
@@ -421,18 +422,17 @@ def company_table(analysis: Analysis) -> str:
                 row.get("prodName", ""),
                 row.get("clasName", ""),
                 f"{row['_ast']:,.1f}",
-                signed(row["_ast_delta"], 1),
                 signed(num(row.get("netInflow")), 1),
                 f"{num(row.get('traval')) / 100000000.0:,.1f}",
                 pct(num(row.get("yield")), 2),
             ]
         )
     return table(
-        ["代码", "产品简称", "品类", "规模", "日变化", "净流入", "成交额", "涨跌幅"],
+        ["代码", "产品简称", "品类", "规模（亿元）", "净流入（亿元）", "成交额（亿元）", "涨跌幅（%）"],
         rows,
-        {3, 4, 5, 6, 7},
+        {3, 4, 5, 6},
         "company-table",
-        ["10%", "27%", "13%", "12%", "10%", "11%", "9%", "8%"],
+        ["10%", "30%", "14%", "13%", "12%", "11%", "10%"],
     )
 
 
@@ -561,15 +561,6 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
             company_gap_next = company["scale"] - analysis.managers[company["rank"]]["scale"]
         company_products = int(company.get("products") or len(analysis.company_products))
 
-    validation_text = (
-        "数据验证agent：ETF数据核验专家。已校验ETF产品代码唯一性、样本数量完整性、规模合计可复算、前十大管理人排序、"
-        f"{analysis.company_name}规模可复算、品类规模汇总一致和数据日期一致性，结果均通过。规模和产品数采用非货ETF口径；"
-        "非货非债校验应按 clasName != 债券 剔除债券ETF，不按产品名称中的“现金”等字样剔除。"
-        "报告内容已经过数据验证agent验证无误。"
-        if validation_ok
-        else "数据验证agent：ETF数据核验专家。存在待复核项目：" + "；".join(validation_lines)
-    )
-
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -633,7 +624,8 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
       box-shadow: var(--shadow-soft);
     }}
     .kpi strong {{ display: block; color: var(--ink); font-size: 23px; line-height: 1; margin-bottom: 7px; font-weight: 800; }}
-    .kpi span {{ display:block; color: var(--muted); font-size: 12px; }}
+    .kpi .kpi-label {{ display:block; color: var(--muted); font-size: 14px; }}
+    .kpi strong span {{ display:inline; font-size: inherit; line-height: inherit; font-weight: 800; }}
     .kpi-label {{
       min-height: 34px;
       color: var(--text) !important;
@@ -724,7 +716,6 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     .bar-value {{ text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }}
     .note {{ background: rgba(255, 255, 255, 0.54); border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px; align-self: start; }}
     p {{ margin: 0 0 10px; }}
-    .validation {{ border-left: 5px solid var(--green); background: rgba(240, 253, 244, 0.66); }}
     .refs a {{ color: var(--blue-dark); text-decoration: none; border-bottom: 1px solid #aac4ff; }}
     footer {{ color: var(--muted); font-size: 13px; margin: 18px 0 0; text-align: right; }}
     @media (max-width: 980px) {{
@@ -747,7 +738,7 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
       <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}非货ETF规模排名</span><strong>第{company.get('rank', '-')}名</strong></div>
       <div class="kpi"><span class="kpi-label">前一名基金非货ETF规模</span><strong>{prev_company_scale:,.0f}亿</strong></div>
       <div class="kpi"><span class="kpi-label">全市场非货ETF数量</span><strong>{len(analysis.rows)}只</strong></div>
-      <div class="kpi"><span class="kpi-label">当日全市场非货ETF规模变化</span><strong>{tone_span(signed(analysis.total_delta, 1) + '亿')}</strong></div>
+      <div class="kpi"><span class="kpi-label">当日全市场非货ETF净流入</span><strong>{tone_span(signed(analysis.total_net_inflow, 1) + '亿')}</strong></div>
       <div class="kpi"><span class="kpi-label">前十大管理人非货ETF规模占比</span><strong>{cr10:.1f}%</strong></div>
       <div class="kpi"><span class="kpi-label">{esc(analysis.company_name)}非货ETF合计规模</span><strong>{company.get('scale', 0):,.0f}亿</strong></div>
       <div class="kpi"><span class="kpi-label">距前一名追赶距离</span><strong>{company_gap_prev or 0:,.0f}亿</strong></div>
@@ -800,14 +791,9 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
 
     <section>
       <h2>{esc(analysis.company_name)}ETF产品监控</h2>
-      <p>{esc(analysis.company_name)}ETF合计规模{company.get('scale', 0):,.1f}亿元，排名第{company.get('rank', '-')}，市占率{company.get('market_share', 0):.1f}%，日变化{signed(company.get('delta', 0), 1)}亿元。</p>
+      <p>{esc(analysis.company_name)}ETF合计规模{company.get('scale', 0):,.1f}亿元，排名第{company.get('rank', '-')}，市占率{company.get('market_share', 0):.1f}%，当日净流入{signed(company.get('net_inflow', 0), 1)}亿元。</p>
       {company_table(analysis)}
       {source(data_date)}
-    </section>
-
-    <section class="validation">
-      <h2>数据核验专家意见</h2>
-      <p>{esc(validation_text)}</p>
     </section>
 
     {build_references_html(references)}
