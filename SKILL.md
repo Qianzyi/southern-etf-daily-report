@@ -71,6 +71,19 @@ Data validation must still run and `validation_ok` must be checked, but the repo
 
 Manager `排名变` must compare current non-currency ETF manager scale ranking against the nearest previous raw data file in `data-dir` (`etf_strategy_daily_raw_YYYYMMDD.json`). Use the previous trading day's actual manager scale aggregation when available; only fall back to same-day `astChgRto` back-calculation if no previous raw file exists.
 
+## Layout Contract
+
+Treat the report layout as fixed unless the user explicitly asks to redesign it. Data fixes, ranking logic changes, field-name changes, and daily generation must preserve the established output form:
+
+- HTML structure and CSS should remain consistent with the latest approved single-page Apple-style glassmorphism report.
+- Keep the section order unchanged: header, 10 KPI cards, 今日摘要/ETF营销建议, 基金管理人ETF市场格局解读, 市场ETF趋势与品类轮动, 资金流向榜, 南方基金ETF产品监控, footer.
+- Keep 10 KPI cards in two rows of five.
+- Keep the manager ranking table and manager scale chart side by side and equal-sized; keep the category table and research observation panel side by side and equal-sized.
+- Keep table headers with bracketed units and source notes after tables.
+- Do not reintroduce `日变化` columns or the `数据核验专家意见` display block.
+- Final PDF must remain a single-page vertical long-page export at the established 1080 x 3150 PDF page size, generated from a 1440 x 4200 print source.
+- Before delivery after any code or data-logic change, compare the new HTML/CSS structure with the previous approved report when available. CSS and structural diffs should be zero unless the user explicitly requested a layout change.
+
 ## Official-Ranking口径
 
 Use these rules when comparing against the official Wind-style ranking screenshots:
