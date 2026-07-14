@@ -69,6 +69,8 @@ The HTML report includes:
 
 Data validation must still run and `validation_ok` must be checked, but the report body should not display a `数据核验专家意见` section.
 
+Manager `排名变` must compare current non-currency ETF manager scale ranking against the nearest previous raw data file in `data-dir` (`etf_strategy_daily_raw_YYYYMMDD.json`). Use the previous trading day's actual manager scale aggregation when available; only fall back to same-day `astChgRto` back-calculation if no previous raw file exists.
+
 ## Official-Ranking口径
 
 Use these rules when comparing against the official Wind-style ranking screenshots:

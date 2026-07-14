@@ -127,6 +127,22 @@ def load_rows(path: Path) -> list[dict[str, Any]]:
     raise ValueError(f"Cannot find ETF rows in {path}")
 
 
+def infer_data_date(rows: list[dict[str, Any]]) -> str:
+    data_dates = [str(r.get("astDate") or r.get("dataDate") or "") for r in rows if r.get("astDate") or r.get("dataDate")]
+    return fmt_date(max(data_dates) if data_dates else "")
+
+
+def find_previous_raw(data_dir: Path, current_stamp: str) -> Path | None:
+    candidates: list[tuple[str, Path]] = []
+    for path in data_dir.glob("etf_strategy_daily_raw_*.json"):
+        suffix = path.stem.replace("etf_strategy_daily_raw_", "", 1)
+        if len(suffix) == 8 and suffix.isdigit() and suffix < current_stamp:
+            candidates.append((suffix, path))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item[0])[1]
+
+
 def num(value: Any, default: float = 0.0) -> float:
     if value in (None, "", "--", "-"):
         return default
@@ -185,12 +201,22 @@ def rank_rows(items: Iterable[dict[str, Any]], key: str) -> list[dict[str, Any]]
     return ordered
 
 
+def manager_previous_rank_from_rows(rows: list[dict[str, Any]]) -> dict[str, int]:
+    manager_acc: dict[str, dict[str, Any]] = defaultdict(lambda: {"name": "", "scale": 0.0})
+    for row in rows:
+        manager_name = str(row.get("managementCompany") or "未披露")
+        manager = manager_acc[manager_name]
+        manager["name"] = manager_name
+        manager["scale"] += num(row.get("ast"))
+    return {item["name"]: item["rank"] for item in rank_rows(manager_acc.values(), "scale")}
+
+
 def company_short(value: Any) -> str:
     text = str(value if value is not None else "")
     return text.replace("基金管理有限公司", "").replace("基金", "")
 
 
-def analyze(rows: list[dict[str, Any]], company_name: str) -> Analysis:
+def analyze(rows: list[dict[str, Any]], company_name: str, previous_rows: list[dict[str, Any]] | None = None) -> Analysis:
     enriched: list[dict[str, Any]] = []
     for row in rows:
         scale = num(row.get("ast"))
@@ -202,8 +228,7 @@ def analyze(rows: list[dict[str, Any]], company_name: str) -> Analysis:
         enriched_row["_ast_delta"] = scale - previous
         enriched.append(enriched_row)
 
-    data_dates = [str(r.get("astDate") or r.get("dataDate") or "") for r in enriched if r.get("astDate") or r.get("dataDate")]
-    data_date = fmt_date(max(data_dates) if data_dates else "")
+    data_date = infer_data_date(enriched)
 
     total_scale = sum(r["_ast"] for r in enriched)
     total_prev_scale = sum(r["_prev_ast"] for r in enriched)
@@ -238,8 +263,11 @@ def analyze(rows: list[dict[str, Any]], company_name: str) -> Analysis:
         category["products"] += 1
 
     managers_current = rank_rows(manager_acc.values(), "scale")
-    managers_prev = rank_rows([dict(item, scale=item["prev"]) for item in manager_acc.values()], "scale")
-    prev_rank = {item["name"]: item["rank"] for item in managers_prev}
+    if previous_rows:
+        prev_rank = manager_previous_rank_from_rows(previous_rows)
+    else:
+        managers_prev = rank_rows([dict(item, scale=item["prev"]) for item in manager_acc.values()], "scale")
+        prev_rank = {item["name"]: item["rank"] for item in managers_prev}
     managers_by_name: dict[str, dict[str, Any]] = {}
     for manager in managers_current:
         manager["market_share"] = manager["scale"] / total_scale * 100 if total_scale else 0
@@ -814,10 +842,14 @@ def write_report(
     output_dir.mkdir(parents=True, exist_ok=True)
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    analysis = analyze(rows, company_name)
-    validation_ok, validation_lines = validate_data(analysis)
-    stamp = analysis.data_date.replace("-", "")
+    data_date = infer_data_date(rows)
+    stamp = data_date.replace("-", "")
     raw_path = data_dir / f"etf_strategy_daily_raw_{stamp}.json"
+    previous_raw_path = find_previous_raw(data_dir, stamp)
+    previous_rows = load_rows(previous_raw_path) if previous_raw_path else None
+
+    analysis = analyze(rows, company_name, previous_rows=previous_rows)
+    validation_ok, validation_lines = validate_data(analysis)
     html_path = output_dir / f"{company_name}ETF分析日报_{stamp}.html"
 
     raw_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -826,6 +858,7 @@ def write_report(
     return {
         "html": str(html_path.resolve()),
         "raw": str(raw_path.resolve()),
+        "previous_raw": str(previous_raw_path.resolve()) if previous_raw_path else None,
         "rows": len(rows),
         "data_date": analysis.data_date,
         "validation_ok": validation_ok,
