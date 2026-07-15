@@ -5,7 +5,7 @@ description: Use when the user asks for 南方基金ETF分析日报, ETF日报, 
 
 # Southern Fund ETF Daily Report
 
-Use this skill to generate a polished Chinese ETF daily report for ETF strategy teams, centered on Southern Fund (`南方基金`) and the full-market ETF landscape. The canonical deliverable is a single-page vertical PDF, with HTML as the editable source.
+Use this skill to generate a polished Chinese ETF daily report for ETF strategy teams, centered on Southern Fund (`南方基金`) and the full-market ETF landscape. The canonical deliverable is a multi-page Letter PDF, with HTML as the editable source.
 
 The bundled script:
 
@@ -28,11 +28,22 @@ Useful options:
 ```powershell
 python scripts/generate_southern_etf_daily_report.py --output-dir output/html --data-dir data
 python scripts/generate_southern_etf_daily_report.py --raw-json path/to/etf_rows.json
+python scripts/generate_southern_etf_daily_report.py --target-data-date 2026-07-14
 python scripts/generate_southern_etf_daily_report.py --company 南方基金
 python scripts/generate_southern_etf_daily_report.py --reference "上海证券报=https://example.com/article"
+python scripts/export_paginated_pdf.py output/html/南方基金ETF分析日报_20260714.html output/pdf/南方基金ETF分析日报_20260714.pdf
 ```
 
-The script prints JSON containing `html`, `raw`, `rows`, `data_date`, and `validation_ok`.
+The script prints JSON containing `html`, `raw`, `rows`, `data_date`, `target_data_date`, and `validation_ok`.
+
+## Today Report Date Rule
+
+- For both manual requests and scheduled tasks, wording such as "today", "today's report", `今天`, or `今日` sets the target data date to the trigger date minus one calendar day. It never means same-day intraday data.
+- Example: a request or an 08:30 scheduled run on 2026-07-15 targets 2026-07-14 data and analyzes the market situation of 2026-07-14.
+- Always pass the locked date with `--target-data-date YYYY-MM-DD`. The bundled script defaults this option to the previous calendar day, so unattended scheduled runs follow the same rule.
+- If the target date is a weekend, exchange holiday, or otherwise has no completed ETF snapshot, use the latest completed trading day no later than the target date. Display and name the report with the actual data date, not the trigger date.
+- Never use data dated after the target date. If the live endpoint returns newer data, the generator must stop; rerun with a saved raw JSON snapshot no later than the target date.
+- An explicit historical date from the user overrides the relative-date rule and becomes the target data date.
 
 ## Prerequisites
 
@@ -44,12 +55,13 @@ For ETFirst setup details and data-field assumptions, read `references/etfirst.m
 
 ## Workflow
 
-1. Confirm whether the user wants live data or an offline cached JSON.
-2. If live data is requested, run the bundled script directly. If ETFirst is rate-limited, ask for or use a saved raw JSON file with `--raw-json`.
-3. Inspect the JSON result and ensure `validation_ok` is true before presenting the report as verified.
-4. If layout matters or PDF is requested, render the HTML in a browser and visually inspect the output before delivery.
-5. For PDF delivery, use the final format below and render the PDF to PNG for verification.
-6. Return the HTML/PDF path and mention the raw data path. If validation fails, report the failed checks and do not say the report was verified.
+1. Lock the target data date. For `今日`/`今天` and scheduled daily runs, use the trigger date minus one calendar day.
+2. Confirm whether the user wants live data or an offline cached JSON. Pass the locked date through `--target-data-date`.
+3. If live data is requested, run the bundled script directly. If ETFirst is rate-limited or returns data newer than the target date, ask for or use a saved raw JSON file with `--raw-json`.
+4. Inspect the JSON result and ensure `validation_ok` is true before presenting the report as verified.
+5. If layout matters or PDF is requested, render the HTML in a browser and visually inspect the output before delivery.
+6. For PDF delivery, use the final format below and render the PDF to PNG for verification.
+7. Return the HTML/PDF path and mention the raw data path. If validation fails, report the failed checks and do not say the report was verified.
 
 ## Output Characteristics
 
@@ -75,13 +87,13 @@ Manager `排名变` must compare current non-currency ETF manager scale ranking 
 
 Treat the report layout as fixed unless the user explicitly asks to redesign it. Data fixes, ranking logic changes, field-name changes, and daily generation must preserve the established output form:
 
-- HTML structure and CSS should remain consistent with the latest approved single-page Apple-style glassmorphism report.
+- HTML structure and CSS should remain consistent with the approved July 10 paginated glassmorphism report.
 - Keep the section order unchanged: header, 10 KPI cards, 今日摘要/ETF营销建议, 基金管理人ETF市场格局解读, 市场ETF趋势与品类轮动, 资金流向榜, 南方基金ETF产品监控, footer.
-- Keep 10 KPI cards in two rows of five.
-- Keep the manager ranking table and manager scale chart side by side and equal-sized; keep the category table and research observation panel side by side and equal-sized.
+- In the PDF, keep 10 KPI cards in five rows of two.
+- In the PDF, stack the summary panels, manager ranking table and chart, category table and research observation panel, and flow tables in reading order.
 - Keep table headers with bracketed units and source notes after tables.
 - Do not reintroduce `日变化` columns or the `数据核验专家意见` display block.
-- Final PDF must remain a single-page vertical long-page export at the established 1080 x 3150 PDF page size, generated from a 1440 x 4200 print source.
+- Final PDF must use standard Letter pages at 612 x 792 pt with natural pagination and 10 mm inner page padding.
 - Before delivery after any code or data-logic change, compare the new HTML/CSS structure with the previous approved report when available. CSS and structural diffs should be zero unless the user explicitly requested a layout change.
 
 ## Official-Ranking口径
@@ -99,9 +111,9 @@ Use these rules when comparing against the official Wind-style ranking screensho
 When the user asks for PDF or the final shareable report:
 
 - file name must be `南方基金ETF分析日报_YYYYMMDD.pdf`;
-- use a single-page vertical long-page PDF, not A4 landscape and not multi-page;
+- use a multi-page Letter PDF, not A4 landscape and not a long-canvas export;
 - preserve the Apple-style glassmorphism look, Microsoft YaHei font, black text, red for increases/规模增加, green for decreases/规模下降;
-- keep the 10 KPI cards as two rows of five at the top;
+- keep the 10 KPI cards as five rows of two in the PDF;
 - export from the HTML source, then render the PDF to PNG and inspect for clipping, overlap, tiny unreadable text, or broken tables before delivery.
 
 ## Notes

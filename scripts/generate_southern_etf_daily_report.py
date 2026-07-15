@@ -8,7 +8,7 @@ import subprocess
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -128,6 +128,9 @@ def load_rows(path: Path) -> list[dict[str, Any]]:
 
 
 def infer_data_date(rows: list[dict[str, Any]]) -> str:
+    trading_dates = [str(r.get("yieldDate") or "") for r in rows if r.get("yieldDate")]
+    if trading_dates:
+        return fmt_date(max(trading_dates))
     data_dates = [str(r.get("astDate") or r.get("dataDate") or "") for r in rows if r.get("astDate") or r.get("dataDate")]
     return fmt_date(max(data_dates) if data_dates else "")
 
@@ -157,6 +160,27 @@ def fmt_date(value: Any) -> str:
     if len(text) == 8 and text.isdigit():
         return f"{text[:4]}-{text[4:6]}-{text[6:]}"
     return text or "-"
+
+
+def normalize_target_data_date(value: str) -> str:
+    normalized = fmt_date(value)
+    datetime.strptime(normalized, "%Y-%m-%d")
+    return normalized
+
+
+def default_target_data_date(now: datetime | None = None) -> str:
+    trigger_time = now or datetime.now()
+    return (trigger_time.date() - timedelta(days=1)).isoformat()
+
+
+def validate_data_cutoff(data_date: str, target_data_date: str) -> None:
+    actual = datetime.strptime(fmt_date(data_date), "%Y-%m-%d").date()
+    target = datetime.strptime(normalize_target_data_date(target_data_date), "%Y-%m-%d").date()
+    if actual > target:
+        raise ValueError(
+            f"ETF data date {actual.isoformat()} is newer than target data date "
+            f"{target.isoformat()}; use a historical raw JSON snapshot no later than the target date."
+        )
 
 
 def cn_date(value: str) -> str:
@@ -320,7 +344,7 @@ def validate_data(analysis: Analysis) -> tuple[bool, list[str]]:
     company_sum = sum(r["_ast"] for r in rows if str(r.get("managementCompany") or "") == analysis.company_name)
     checks.append(("南方基金规模可复算", bool(analysis.company) and abs(company_sum - analysis.company["scale"]) < 0.01))
     checks.append(("品类规模汇总一致", abs(sum(c["scale"] for c in analysis.categories) - analysis.total_scale) < 0.01))
-    date_values = [str(r.get("astDate") or r.get("dataDate") or "") for r in rows if r.get("astDate") or r.get("dataDate")]
+    date_values = [str(r.get("yieldDate") or r.get("astDate") or r.get("dataDate") or "") for r in rows if r.get("yieldDate") or r.get("astDate") or r.get("dataDate")]
     checks.append(("数据日期一致性", bool(date_values) and max(date_values) == analysis.data_date.replace("-", "")))
     return all(ok for _, ok in checks), [f"{name}: {'通过' if ok else '异常'}" for name, ok in checks]
 
@@ -746,6 +770,24 @@ def build_html(analysis: Analysis, validation_ok: bool, validation_lines: list[s
     p {{ margin: 0 0 10px; }}
     .refs a {{ color: var(--blue-dark); text-decoration: none; border-bottom: 1px solid #aac4ff; }}
     footer {{ color: var(--muted); font-size: 13px; margin: 18px 0 0; text-align: right; }}
+    @page {{ size: Letter; margin: 0; }}
+    @media print {{
+      html, body {{
+        margin: 0 !important;
+        background: #eef3f8 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }}
+      .page {{ max-width: none; margin: 0; padding: 10mm; }}
+      .hero, .grid-2, .grid-3, .summary-grid {{ grid-template-columns: 1fr; }}
+      .meta {{ text-align: left; white-space: normal; }}
+      .kpis {{ grid-template-columns: repeat(2, 1fr); }}
+      .hero, .kpi, tr {{ break-inside: avoid; page-break-inside: avoid; }}
+      h2, h3, .subsection-title {{ break-after: avoid; page-break-after: avoid; }}
+      .company-table th, .company-table td {{ padding-top: 4px; padding-bottom: 4px; }}
+      footer {{ display: none; }}
+      a {{ color: inherit; text-decoration: none; }}
+    }}
     @media (max-width: 980px) {{
       .hero, .grid-2, .grid-3, .summary-grid {{ grid-template-columns: 1fr; }}
       .meta {{ text-align: left; white-space: normal; }}
@@ -838,11 +880,15 @@ def write_report(
     data_dir: Path,
     company_name: str,
     references: list[tuple[str, str]],
+    target_data_date: str | None = None,
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     data_dir.mkdir(parents=True, exist_ok=True)
 
     data_date = infer_data_date(rows)
+    if target_data_date:
+        target_data_date = normalize_target_data_date(target_data_date)
+        validate_data_cutoff(data_date, target_data_date)
     stamp = data_date.replace("-", "")
     raw_path = data_dir / f"etf_strategy_daily_raw_{stamp}.json"
     previous_raw_path = find_previous_raw(data_dir, stamp)
@@ -861,6 +907,7 @@ def write_report(
         "previous_raw": str(previous_raw_path.resolve()) if previous_raw_path else None,
         "rows": len(rows),
         "data_date": analysis.data_date,
+        "target_data_date": target_data_date,
         "validation_ok": validation_ok,
         "validation": validation_lines,
     }
@@ -875,6 +922,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--etfirst-cmd", default="etfirst", help="ETFirst CLI command. Defaults to etfirst.")
     parser.add_argument("--page-size", type=int, default=100, help="ETFirst page size.")
     parser.add_argument("--max-pages", type=int, default=300, help="Safety limit for pagination.")
+    parser.add_argument(
+        "--target-data-date",
+        default=default_target_data_date(),
+        help="Latest allowed data date (YYYY-MM-DD or YYYYMMDD). Defaults to the previous calendar day.",
+    )
     parser.add_argument("--reference", action="append", default=[], help='Optional public reference, format "label=url". Repeatable.')
     return parser.parse_args()
 
@@ -896,6 +948,7 @@ def main() -> int:
         data_dir=Path(args.data_dir),
         company_name=args.company,
         references=parse_references(args.reference),
+        target_data_date=args.target_data_date,
     )
     result["source_mode"] = source_mode
     print(json.dumps(result, ensure_ascii=False, indent=2))
