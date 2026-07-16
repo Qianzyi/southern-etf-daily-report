@@ -5,7 +5,7 @@ description: Use when the user asks for 南方基金ETF分析日报, ETF日报, 
 
 # Southern Fund ETF Daily Report
 
-Use this skill to generate a polished Chinese ETF daily report for ETF strategy teams, centered on Southern Fund (`南方基金`) and the full-market ETF landscape. The canonical deliverable is a single-page vertical, height-fitted PDF, with HTML as the editable source.
+Use this skill to generate a polished Chinese ETF daily report for ETF strategy teams, centered on Southern Fund (`南方基金`) and the full-market ETF landscape. The canonical deliverable is the approved multi-page Letter PDF, with HTML as the editable source.
 
 The bundled script:
 
@@ -32,7 +32,6 @@ python scripts/generate_southern_etf_daily_report.py --target-data-date 2026-07-
 python scripts/generate_southern_etf_daily_report.py --company 南方基金
 python scripts/generate_southern_etf_daily_report.py --reference "上海证券报=https://example.com/article"
 python scripts/export_paginated_pdf.py output/html/南方基金ETF分析日报_20260714.html output/pdf/南方基金ETF分析日报_20260714.pdf
-node scripts/export_single_page_pdf.js output/html/南方基金ETF分析日报_20260714.html output/pdf/南方基金ETF分析日报_20260714.pdf
 ```
 
 The script prints JSON containing `html`, `raw`, `rows`, `data_date`, `target_data_date`, and `validation_ok`.
@@ -88,15 +87,15 @@ Manager `排名变` must compare current non-currency ETF manager scale ranking 
 
 Treat the report layout as fixed unless the user explicitly asks to redesign it. Data fixes, ranking logic changes, field-name changes, and daily generation must preserve the established output form:
 
-- HTML structure and CSS should remain consistent with the approved July 10 Apple-style glassmorphism report.
+- HTML structure and CSS should remain consistent with the approved July 10 paginated Apple-style glassmorphism report.
 - Keep the section order unchanged: header, 10 KPI cards, 今日摘要/ETF营销建议, 基金管理人ETF市场格局解读, 市场ETF趋势与品类轮动, 资金流向榜, 南方基金ETF产品监控, footer.
-- In the PDF, keep 10 KPI cards in the established compact KPI grid and preserve the approved section order.
-- In the PDF, preserve the screen layout proportions instead of forcing Letter-page single-column pagination.
+- In the PDF, keep 10 KPI cards as five rows of two.
+- In the PDF, stack the summary panels, manager ranking table and chart, category table and research observation panel, and flow tables in reading order.
 - Keep table headers with bracketed units and source notes after tables.
 - Do not reintroduce `日变化` columns or the `数据核验专家意见` display block.
-- Final PDF must be a single vertical page fitted to actual content height. Do not use standard Letter pagination, A4 pagination, or a fixed oversized canvas that leaves a large blank area below the footer.
-- The PDF exporter must measure the rendered HTML height and set the PDF page height from the measured content. The area below the footer should remain visually tight, with only a small closing margin.
-- To preserve the exact browser layout and avoid Chrome print pagination, the final single-page PDF may be produced by capturing the rendered HTML as a high-resolution image and embedding it into a one-page PDF.
+- Final PDF must use the approved standard Letter pagination at 612 x 792 pt with natural Chrome pagination and 10 mm inner page padding.
+- Do not solve whitespace by changing CSS, changing the HTML structure, switching to a screenshot/image PDF, changing to a single long page, or forcing a different page size.
+- If the final page has excessive bottom whitespace, trim only the bottom page box of the final PDF page with `scripts/trim_pdf_tail_whitespace.py`. This is a PDF post-process and must not re-render, rescale, or reflow report content.
 - Before delivery after any code or data-logic change, compare the new HTML/CSS structure with the previous approved report when available. CSS and structural diffs should be zero unless the user explicitly requested a layout change.
 
 ## Official-Ranking口径
@@ -114,10 +113,10 @@ Use these rules when comparing against the official Wind-style ranking screensho
 When the user asks for PDF or the final shareable report:
 
 - file name must be `南方基金ETF分析日报_YYYYMMDD.pdf`;
-- use a single-page vertical PDF fitted to rendered content height, not multi-page Letter/A4 pagination and not a fixed oversized canvas;
+- use the approved multi-page Letter PDF, not A4 landscape and not a single-page screenshot/long-canvas export;
 - preserve the Apple-style glassmorphism look, Microsoft YaHei font, black text, red for increases/规模增加, green for decreases/规模下降;
-- keep the 10 KPI cards and all report sections in the approved screen-style layout;
-- export from the HTML source with `scripts/export_single_page_pdf.js` or the compatible `scripts/export_paginated_pdf.py` wrapper, then inspect for clipping, overlap, tiny unreadable text, broken tables, or excessive blank space before delivery.
+- keep the 10 KPI cards as five rows of two in the PDF;
+- export from the HTML source with `scripts/export_paginated_pdf.py`, which preserves the approved layout and then trims only final-page bottom whitespace. Render/inspect the PDF for clipping, overlap, tiny unreadable text, broken tables, or excessive blank space before delivery.
 
 ## Notes
 
