@@ -49,6 +49,8 @@ The script prints JSON containing `html`, `raw`, `rows`, `data_date`, `target_da
 
 Require Python 3.10+ and a working ETFirst CLI named `etfirst` on `PATH`.
 
+PDF export and layout validation require Python packages `pypdf` and `pdfplumber`.
+
 Do not publish or hard-code ETFirst keys in generated reports, scripts, commits, or GitHub repositories. Users should configure ETFirst locally according to their own authorization process.
 
 For ETFirst setup details and data-field assumptions, read `references/etfirst.md` only when installation, authentication, or field mapping is relevant.
@@ -96,6 +98,7 @@ Treat the report layout as fixed unless the user explicitly asks to redesign it.
 - Final PDF must use the approved standard Letter pagination at 612 x 792 pt with natural Chrome pagination and 10 mm inner page padding.
 - Do not solve whitespace by changing CSS, changing the HTML structure, switching to a screenshot/image PDF, changing to a single long page, or forcing a different page size.
 - If the final page has excessive bottom whitespace, trim only the bottom page box of the final PDF page with `scripts/trim_pdf_tail_whitespace.py`. This is a PDF post-process and must not re-render, rescale, or reflow report content.
+- Every PDF export must pass `scripts/validate_pdf_layout.py`: at least two pages, Letter width, full Letter height for all non-final pages, a not-larger-than-Letter final page, and extractable text. If validation fails, treat the report as broken and do not deliver it.
 - Before delivery after any code or data-logic change, compare the new HTML/CSS structure with the previous approved report when available. CSS and structural diffs should be zero unless the user explicitly requested a layout change.
 
 ## Official-Ranking口径

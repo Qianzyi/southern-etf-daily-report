@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from trim_pdf_tail_whitespace import trim_pdf_tail_whitespace
+from validate_pdf_layout import validate_report_pdf_layout
 
 
 DEFAULT_CHROME = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
@@ -54,12 +55,14 @@ def export_pdf(
     trim_result: dict[str, str | int | float | bool] = {"trimmed": False}
     if trim_tail:
         trim_result = trim_pdf_tail_whitespace(pdf_path, pdf_path)
+    layout_result = validate_report_pdf_layout(pdf_path, trim_result=trim_result)
 
     return {
         "html": str(html_path),
         "pdf": str(pdf_path),
         "bytes": pdf_path.stat().st_size,
         **trim_result,
+        **layout_result,
     }
 
 
