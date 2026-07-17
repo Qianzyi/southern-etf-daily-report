@@ -5,7 +5,7 @@ description: Use when the user asks for 南方基金ETF分析日报, ETF日报, 
 
 # Southern Fund ETF Daily Report
 
-Use this skill to generate a polished Chinese ETF daily report for ETF strategy teams, centered on Southern Fund (`南方基金`) and the full-market ETF landscape. The canonical deliverable is a single-page vertical PDF, with HTML as the editable source.
+Use this skill to generate a polished Chinese ETF daily report for ETF strategy teams, centered on Southern Fund (`南方基金`) and the full-market ETF landscape. The canonical deliverable is the approved multi-page Letter PDF, with HTML as the editable source.
 
 The bundled script:
 
@@ -28,15 +28,29 @@ Useful options:
 ```powershell
 python scripts/generate_southern_etf_daily_report.py --output-dir output/html --data-dir data
 python scripts/generate_southern_etf_daily_report.py --raw-json path/to/etf_rows.json
+python scripts/generate_southern_etf_daily_report.py --target-data-date 2026-07-14
 python scripts/generate_southern_etf_daily_report.py --company 南方基金
 python scripts/generate_southern_etf_daily_report.py --reference "上海证券报=https://example.com/article"
+python scripts/export_paginated_pdf.py output/html/南方基金ETF分析日报_20260714.html output/pdf/南方基金ETF分析日报_20260714.pdf
 ```
 
-The script prints JSON containing `html`, `raw`, `rows`, `data_date`, and `validation_ok`.
+The script prints JSON containing `html`, `raw`, `rows`, `data_date`, `target_data_date`, and `validation_ok`.
+
+## Today Report Date Rule
+
+- For both manual requests and scheduled tasks, wording such as "today", "today's report", `今天`, or `今日` sets the target data date to the trigger date minus one calendar day. It never means same-day intraday data.
+- Example: a request or an 08:30 scheduled run on 2026-07-15 targets 2026-07-14 data and analyzes the market situation of 2026-07-14.
+- Always pass the locked date with `--target-data-date YYYY-MM-DD`. The bundled script defaults this option to the previous calendar day, so unattended scheduled runs follow the same rule.
+- The report date and file name must be based on ETF scale/ranking data fields `astDate`/`dataDate`, not `yieldDate`. `yieldDate` may be newer because it is a market return field and must never be used as the report data date for this scale/ranking report.
+- The target date must match the ETF scale/ranking date exactly. If ETFirst returns `astDate`/`dataDate` older than the target date, stop and report that ETFirst has not updated scale/ranking data yet; do not silently generate a report with stale scale data.
+- Never use data dated after the target date. If the live endpoint returns newer data, the generator must stop; rerun with a saved raw JSON snapshot no later than the target date.
+- An explicit historical date from the user overrides the relative-date rule and becomes the target data date.
 
 ## Prerequisites
 
 Require Python 3.10+ and a working ETFirst CLI named `etfirst` on `PATH`.
+
+PDF export and layout validation require Python packages `pypdf` and `pdfplumber`.
 
 Do not publish or hard-code ETFirst keys in generated reports, scripts, commits, or GitHub repositories. Users should configure ETFirst locally according to their own authorization process.
 
@@ -44,12 +58,13 @@ For ETFirst setup details and data-field assumptions, read `references/etfirst.m
 
 ## Workflow
 
-1. Confirm whether the user wants live data or an offline cached JSON.
-2. If live data is requested, run the bundled script directly. If ETFirst is rate-limited, ask for or use a saved raw JSON file with `--raw-json`.
-3. Inspect the JSON result and ensure `validation_ok` is true before presenting the report as verified.
-4. If layout matters or PDF is requested, render the HTML in a browser and visually inspect the output before delivery.
-5. For PDF delivery, use the final format below and render the PDF to PNG for verification.
-6. Return the HTML/PDF path and mention the raw data path. If validation fails, report the failed checks and do not say the report was verified.
+1. Lock the target data date. For `今日`/`今天` and scheduled daily runs, use the trigger date minus one calendar day.
+2. Confirm whether the user wants live data or an offline cached JSON. Pass the locked date through `--target-data-date`.
+3. If live data is requested, run the bundled script directly. If ETFirst is rate-limited or returns data newer than the target date, ask for or use a saved raw JSON file with `--raw-json`.
+4. Inspect the JSON result and ensure `validation_ok` is true before presenting the report as verified.
+5. If layout matters or PDF is requested, render the HTML in a browser and visually inspect the output before delivery.
+6. For PDF delivery, use the final format below and render the PDF to PNG for verification.
+7. Return the HTML/PDF path and mention the raw data path. If validation fails, report the failed checks and do not say the report was verified.
 
 ## Output Characteristics
 
@@ -69,19 +84,24 @@ The HTML report includes:
 
 Data validation must still run and `validation_ok` must be checked, but the report body should not display a `数据核验专家意见` section.
 
+The report's `data_date`, title date, source notes, raw JSON file stamp, and PDF/HTML file names must all come from `astDate`/`dataDate`. Do not use `yieldDate` to stamp or validate the report.
+
 Manager `排名变` must compare current non-currency ETF manager scale ranking against the nearest previous raw data file in `data-dir` (`etf_strategy_daily_raw_YYYYMMDD.json`). Use the previous trading day's actual manager scale aggregation when available; only fall back to same-day `astChgRto` back-calculation if no previous raw file exists.
 
 ## Layout Contract
 
 Treat the report layout as fixed unless the user explicitly asks to redesign it. Data fixes, ranking logic changes, field-name changes, and daily generation must preserve the established output form:
 
-- HTML structure and CSS should remain consistent with the latest approved single-page Apple-style glassmorphism report.
+- HTML structure and CSS should remain consistent with the approved July 10 paginated Apple-style glassmorphism report.
 - Keep the section order unchanged: header, 10 KPI cards, 今日摘要/ETF营销建议, 基金管理人ETF市场格局解读, 市场ETF趋势与品类轮动, 资金流向榜, 南方基金ETF产品监控, footer.
-- Keep 10 KPI cards in two rows of five.
-- Keep the manager ranking table and manager scale chart side by side and equal-sized; keep the category table and research observation panel side by side and equal-sized.
+- In the PDF, keep 10 KPI cards as five rows of two.
+- In the PDF, stack the summary panels, manager ranking table and chart, category table and research observation panel, and flow tables in reading order.
 - Keep table headers with bracketed units and source notes after tables.
 - Do not reintroduce `日变化` columns or the `数据核验专家意见` display block.
-- Final PDF must remain a single-page vertical long-page export at the established 1080 x 3150 PDF page size, generated from a 1440 x 4200 print source.
+- Final PDF must use the approved standard Letter pagination at 612 x 792 pt with natural Chrome pagination and 10 mm inner page padding.
+- Do not solve whitespace by changing CSS, changing the HTML structure, switching to a screenshot/image PDF, changing to a single long page, or forcing a different page size.
+- If the final page has excessive bottom whitespace, trim only the bottom page box of the final PDF page with `scripts/trim_pdf_tail_whitespace.py`. This is a PDF post-process and must not re-render, rescale, or reflow report content.
+- Every PDF export must pass `scripts/validate_pdf_layout.py`: at least two pages, Letter width, full Letter height for all non-final pages, a not-larger-than-Letter final page, and extractable text. If validation fails, treat the report as broken and do not deliver it.
 - Before delivery after any code or data-logic change, compare the new HTML/CSS structure with the previous approved report when available. CSS and structural diffs should be zero unless the user explicitly requested a layout change.
 
 ## Official-Ranking口径
@@ -99,10 +119,10 @@ Use these rules when comparing against the official Wind-style ranking screensho
 When the user asks for PDF or the final shareable report:
 
 - file name must be `南方基金ETF分析日报_YYYYMMDD.pdf`;
-- use a single-page vertical long-page PDF, not A4 landscape and not multi-page;
+- use the approved multi-page Letter PDF, not A4 landscape and not a single-page screenshot/long-canvas export;
 - preserve the Apple-style glassmorphism look, Microsoft YaHei font, black text, red for increases/规模增加, green for decreases/规模下降;
-- keep the 10 KPI cards as two rows of five at the top;
-- export from the HTML source, then render the PDF to PNG and inspect for clipping, overlap, tiny unreadable text, or broken tables before delivery.
+- keep the 10 KPI cards as five rows of two in the PDF;
+- export from the HTML source with `scripts/export_paginated_pdf.py`, which preserves the approved layout and then trims only final-page bottom whitespace. Render/inspect the PDF for clipping, overlap, tiny unreadable text, broken tables, or excessive blank space before delivery.
 
 ## Notes
 
