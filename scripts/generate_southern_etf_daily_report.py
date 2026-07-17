@@ -128,9 +128,6 @@ def load_rows(path: Path) -> list[dict[str, Any]]:
 
 
 def infer_data_date(rows: list[dict[str, Any]]) -> str:
-    trading_dates = [str(r.get("yieldDate") or "") for r in rows if r.get("yieldDate")]
-    if trading_dates:
-        return fmt_date(max(trading_dates))
     data_dates = [str(r.get("astDate") or r.get("dataDate") or "") for r in rows if r.get("astDate") or r.get("dataDate")]
     return fmt_date(max(data_dates) if data_dates else "")
 
@@ -180,6 +177,12 @@ def validate_data_cutoff(data_date: str, target_data_date: str) -> None:
         raise ValueError(
             f"ETF data date {actual.isoformat()} is newer than target data date "
             f"{target.isoformat()}; use a historical raw JSON snapshot no later than the target date."
+        )
+    if actual < target:
+        raise ValueError(
+            f"ETF scale data date {actual.isoformat()} is older than target data date "
+            f"{target.isoformat()}; ETFirst has not updated scale/ranking data for the target date. "
+            "Do not generate a report with stale scale data."
         )
 
 
@@ -344,7 +347,7 @@ def validate_data(analysis: Analysis) -> tuple[bool, list[str]]:
     company_sum = sum(r["_ast"] for r in rows if str(r.get("managementCompany") or "") == analysis.company_name)
     checks.append(("南方基金规模可复算", bool(analysis.company) and abs(company_sum - analysis.company["scale"]) < 0.01))
     checks.append(("品类规模汇总一致", abs(sum(c["scale"] for c in analysis.categories) - analysis.total_scale) < 0.01))
-    date_values = [str(r.get("yieldDate") or r.get("astDate") or r.get("dataDate") or "") for r in rows if r.get("yieldDate") or r.get("astDate") or r.get("dataDate")]
+    date_values = [str(r.get("astDate") or r.get("dataDate") or "") for r in rows if r.get("astDate") or r.get("dataDate")]
     checks.append(("数据日期一致性", bool(date_values) and max(date_values) == analysis.data_date.replace("-", "")))
     return all(ok for _, ok in checks), [f"{name}: {'通过' if ok else '异常'}" for name, ok in checks]
 

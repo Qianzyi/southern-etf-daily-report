@@ -41,7 +41,8 @@ The script prints JSON containing `html`, `raw`, `rows`, `data_date`, `target_da
 - For both manual requests and scheduled tasks, wording such as "today", "today's report", `今天`, or `今日` sets the target data date to the trigger date minus one calendar day. It never means same-day intraday data.
 - Example: a request or an 08:30 scheduled run on 2026-07-15 targets 2026-07-14 data and analyzes the market situation of 2026-07-14.
 - Always pass the locked date with `--target-data-date YYYY-MM-DD`. The bundled script defaults this option to the previous calendar day, so unattended scheduled runs follow the same rule.
-- If the target date is a weekend, exchange holiday, or otherwise has no completed ETF snapshot, use the latest completed trading day no later than the target date. Display and name the report with the actual data date, not the trigger date.
+- The report date and file name must be based on ETF scale/ranking data fields `astDate`/`dataDate`, not `yieldDate`. `yieldDate` may be newer because it is a market return field and must never be used as the report data date for this scale/ranking report.
+- The target date must match the ETF scale/ranking date exactly. If ETFirst returns `astDate`/`dataDate` older than the target date, stop and report that ETFirst has not updated scale/ranking data yet; do not silently generate a report with stale scale data.
 - Never use data dated after the target date. If the live endpoint returns newer data, the generator must stop; rerun with a saved raw JSON snapshot no later than the target date.
 - An explicit historical date from the user overrides the relative-date rule and becomes the target data date.
 
@@ -82,6 +83,8 @@ The HTML report includes:
 - source notes after tables: `数据来源：南方基金，截至YYYY年M月D日。`
 
 Data validation must still run and `validation_ok` must be checked, but the report body should not display a `数据核验专家意见` section.
+
+The report's `data_date`, title date, source notes, raw JSON file stamp, and PDF/HTML file names must all come from `astDate`/`dataDate`. Do not use `yieldDate` to stamp or validate the report.
 
 Manager `排名变` must compare current non-currency ETF manager scale ranking against the nearest previous raw data file in `data-dir` (`etf_strategy_daily_raw_YYYYMMDD.json`). Use the previous trading day's actual manager scale aggregation when available; only fall back to same-day `astChgRto` back-calculation if no previous raw file exists.
 
